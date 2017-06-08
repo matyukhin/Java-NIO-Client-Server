@@ -1,5 +1,7 @@
-package network;
+package client;
 
+import network.Common;
+import network.Connection;
 import util.Hashing;
 
 import java.io.IOException;
@@ -10,21 +12,17 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static java.lang.Thread.sleep;
-
 public class Client extends Common implements Runnable {
     private final static Logger logger = Logger.getLogger(Client.class.getSimpleName());
     private static final int RECEIVING_BUFFER_SIZE = Hashing.getHashSize();
     private static final int SENDING_BUFFER_SIZE = 8192;
-    private final Reporter reporter;
+    private final ClientReporter reporter;
     private final int sendingIntervalMillis;
     private final Random random;
     private final List<String> hashes;
@@ -34,7 +32,7 @@ public class Client extends Common implements Runnable {
 
     private Client(String serverHost, int serverPort, int sendingRate) throws IOException {
         logger.setLevel(Level.SEVERE);
-        reporter = new Reporter(this);
+        reporter = new ClientReporter();
         sendingIntervalMillis = 1000 / sendingRate;
         random = new Random();
         hashes = new LinkedList<>();
@@ -113,6 +111,7 @@ public class Client extends Common implements Runnable {
     }
 
     private void shutdown() {
+        reporter.shutdown();
         terminateConnection(connection);
         try {
             selector.close();
@@ -152,54 +151,6 @@ public class Client extends Common implements Runnable {
                 shutdown();
             }
         }
-    }
-
-    private static class Reporter implements Runnable {
-        private static final int REPORTING_INTERVAL_MILLIS = 10000;
-        private final Client client;
-        private int sentCount;
-        private int receivedCount;
-
-        Reporter(Client client) {
-            this.client = client;
-            sentCount = 0;
-            receivedCount = 0;
-        }
-
-        synchronized void incrementSentCounter() {
-            ++sentCount;
-        }
-
-        synchronized void incrementReceivedCounter() {
-            ++receivedCount;
-        }
-
-        synchronized private void resetCounters() {
-            sentCount = 0;
-            receivedCount = 0;
-        }
-
-        private void printSummary() {
-            LocalDateTime ldt = LocalDateTime.ofInstant(Instant.now(), ZoneId.systemDefault());
-            System.out.printf("[%02d:%02d:%02d] Sent count: %d, Received count: %d\n",
-                    ldt.getHour(), ldt.getMinute(), ldt.getSecond(), sentCount, receivedCount);
-            resetCounters();
-        }
-
-        @Override
-        public void run() {
-            System.out.println("Starting reports.");
-            while (client.connection.key.isValid()) {
-                try {
-                    sleep(REPORTING_INTERVAL_MILLIS);
-                }
-                catch (InterruptedException e) {
-                    System.out.println(e.getMessage());
-                }
-                printSummary();
-                resetCounters();
-            }
-            System.out.println("The connection to the server is lost. Stopping reports.");
-        }
+        shutdown();
     }
 }

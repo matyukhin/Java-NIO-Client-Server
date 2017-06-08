@@ -4,14 +4,14 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-abstract class Common {
+public abstract class Common {
     private final static Logger logger = Logger.getLogger(Common.class.getSimpleName());
 
-    Common() {
+    protected Common() {
         logger.setLevel(Level.SEVERE);
     }
 
-    void send(Connection connection) {
+    protected void send(Connection connection) {
         try {
             long sentBytesCount = connection.channel.write(connection.sendingBuffer);
             logger.info("Wrote " + sentBytesCount + " bytes");
@@ -25,7 +25,7 @@ abstract class Common {
         }
     }
 
-    void receive(Connection connection) {
+    protected void receive(Connection connection) {
         try {
             long receivedBytesCount = connection.channel.read(connection.receivingBuffer);
             logger.info("Read " + receivedBytesCount + " bytes");
@@ -42,7 +42,7 @@ abstract class Common {
         }
     }
 
-    void terminateConnection(Connection connection) {
+    protected void terminateConnection(Connection connection) {
         connection.key.cancel();
         try {
             connection.channel.close();

@@ -4,13 +4,13 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
-class Connection {
-    final SelectionKey key;
-    final SocketChannel channel;
-    final ByteBuffer receivingBuffer;
-    final ByteBuffer sendingBuffer;
+public class Connection {
+    public final SelectionKey key;
+    public final SocketChannel channel;
+    public final ByteBuffer receivingBuffer;
+    public final ByteBuffer sendingBuffer;
 
-    Connection(SelectionKey key, ByteBuffer receivingBuffer, ByteBuffer sendingBuffer) {
+    public Connection(SelectionKey key, ByteBuffer receivingBuffer, ByteBuffer sendingBuffer) {
         this.key = key;
         this.channel = (SocketChannel) key.channel();
         this.receivingBuffer = receivingBuffer;

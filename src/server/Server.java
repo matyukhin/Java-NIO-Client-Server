@@ -1,5 +1,7 @@
-package network;
+package server;
 
+import network.Common;
+import network.Connection;
 import util.Hashing;
 
 import java.io.IOException;
@@ -11,28 +13,23 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static java.lang.Thread.sleep;
 
 public class Server extends Common implements Runnable {
     private final static Logger logger = Logger.getLogger(Server.class.getSimpleName());
     private static final int RECEIVING_BUFFER_SIZE = 8192;
     private static final int SENDING_BUFFER_SIZE = Hashing.getHashSize();
     private static final int RESPONSES_QUEUE_SIZE = 10;
-    private final Reporter reporter;
+    private final ServerReporter reporter;
     private final Map<SelectionKey, Connection> connections;
     private final Map<SelectionKey, Queue<String>> responses;
     private final Selector selector;
 
     private Server(int port) throws IOException {
         logger.setLevel(Level.SEVERE);
-        reporter = new Reporter(this);
+        reporter = new ServerReporter();
         connections = new HashMap<>();
         responses = new HashMap<>();
         selector = Selector.open();
@@ -65,6 +62,7 @@ public class Server extends Common implements Runnable {
                     ByteBuffer.allocate(RECEIVING_BUFFER_SIZE), ByteBuffer.allocate(SENDING_BUFFER_SIZE));
             connections.put(clientKey, connection);
             responses.put(clientKey, new ArrayDeque<>(RESPONSES_QUEUE_SIZE));
+            reporter.incrementConnectionCounter();
             logger.info("Accepted a connection");
         }
         catch (IOException e) {
@@ -107,13 +105,15 @@ public class Server extends Common implements Runnable {
     }
 
     @Override
-    void terminateConnection(Connection connection) {
+    protected void terminateConnection(Connection connection) {
         super.terminateConnection(connection);
         connections.remove(connection.key);
         responses.remove(connection.key);
+        reporter.decrementConnectionCounter();
     }
 
     private void shutdown() {
+        reporter.shutdown();
         for (Connection connection : connections.values()) {
             terminateConnection(connection);
         }
@@ -151,47 +151,6 @@ public class Server extends Common implements Runnable {
                 shutdown();
             }
         }
-    }
-
-    private static class Reporter implements Runnable {
-        private static final int REPORTING_INTERVAL_MILLIS = 5000;
-        private final Server server;
-        private int messageCount;
-
-        Reporter(Server server) {
-            this.server = server;
-            messageCount = 0;
-        }
-
-        synchronized void incrementMessageCounter() {
-            ++messageCount;
-        }
-
-        synchronized private void resetMessageCounter() {
-            messageCount = 0;
-        }
-
-        private void printSummary() {
-            LocalDateTime ldt = LocalDateTime.ofInstant(Instant.now(), ZoneId.systemDefault());
-            System.out.printf("[%02d:%02d:%02d] Throughput: %.2f messages/s, Number of active clients: %d\n",
-                    ldt.getHour(), ldt.getMinute(), ldt.getSecond(),
-                    (double) messageCount / (REPORTING_INTERVAL_MILLIS / 1000), server.connections.size());
-        }
-
-        @Override
-        public void run() {
-            System.out.println("Starting reports.");
-            while (server.selector.isOpen()) {
-                try {
-                    sleep(REPORTING_INTERVAL_MILLIS);
-                }
-                catch (InterruptedException e) {
-                    System.out.println(e.getMessage());
-                }
-                printSummary();
-                resetMessageCounter();
-            }
-            System.out.println("The server has shutdown. Stopping reports.");
-        }
+        shutdown();
     }
 }
