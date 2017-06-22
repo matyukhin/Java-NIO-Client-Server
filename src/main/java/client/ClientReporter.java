@@ -6,7 +6,7 @@ import java.time.ZoneId;
 
 import static java.lang.Thread.sleep;
 
-public class ClientReporter implements Runnable {
+class ClientReporter implements Runnable {
     private static final int REPORTING_INTERVAL_MILLIS = 10000;
     private int sentCount;
     private int receivedCount;
